@@ -1,0 +1,17 @@
+[theme]
+name        = "mycel"
+description = "earthy greens, echoes mycelos"
+
+[colors]
+background  = "#0e1a10"
+foreground  = "#c8d8c0"
+accent      = "#5a9e4a"
+accent2     = "#3a6e2a"
+black       = "#080e08"
+red         = "#a05040"
+green       = "#5a9e4a"
+yellow      = "#90902a"
+blue        = "#3a6a7a"
+magenta     = "#7a5a8a"
+cyan        = "#3a8a6a"
+white       = "#b0c0a8"

@@ -12,6 +12,8 @@ echo "devysix: installing system tooling..."
 install -dm755 /usr/lib/devysix
 install -dm755 /usr/lib/devysix/services
 install -dm755 /usr/lib/devysix/desktops
+install -dm755 /usr/lib/devysix/themes
+install -dm755 /usr/lib/devysix/commands
 install -dm755 /etc/devysix
 install -dm755 /var/lib/devysix/generations
 install -dm755 /etc/s6-linux-init/scripts
@@ -27,9 +29,10 @@ for cmd in "$REPO_DIR/cli/commands/"*; do
     install -m755 "$cmd" /usr/lib/devysix/commands/
 done
 
-# service definitions
+# service definitions, desktop profiles, themes
 install -m644 "$REPO_DIR/services/"*.toml    /usr/lib/devysix/services/
 install -m644 "$REPO_DIR/desktops/"*.toml    /usr/lib/devysix/desktops/
+install -m644 "$REPO_DIR/themes/"*.toml      /usr/lib/devysix/themes/
 
 # s6-linux-init scripts
 install -m755 "$REPO_DIR/s6-linux-init/scripts/rc.init"     /etc/s6-linux-init/scripts/rc.init

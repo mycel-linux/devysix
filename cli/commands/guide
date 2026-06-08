@@ -1,0 +1,86 @@
+#!/bin/sh
+# dev guide — interactive getting started tutorial
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+clear
+cat <<'EOF'
+  devysix guide — getting started
+  ─────────────────────────────────────────────────────
+
+  devysix manages your system declaratively through a
+  single config file: /etc/devysix/devysix.toml
+
+  everything you want on your system lives in that file.
+  devysix makes the system match it.
+
+  ─────────────────────────────────────────────────────
+  CORE WORKFLOW
+
+  1. edit your config
+       dev edit
+
+  2. apply it
+       dev switch
+
+  3. that's it. devysix handles packages, services,
+     hostname, locale, timezone, and users.
+
+  ─────────────────────────────────────────────────────
+  PACKAGES
+
+  install a package and persist it to your config:
+       dev apps install <package>
+
+  remove a package and remove it from your config:
+       dev apps remove <package>
+
+  pin a package so it survives rollbacks:
+       dev lock <package>
+
+  ─────────────────────────────────────────────────────
+  GENERATIONS
+
+  every time you run 'dev switch', a generation snapshot
+  is saved. you can always go back.
+
+  see all generations:
+       dev network
+
+  roll back to the previous generation:
+       dev rollback
+
+  roll back to a specific generation:
+       dev rollback <id>
+
+  compare two generations:
+       dev diff <a> <b>
+
+  clean up old generations:
+       dev purge
+
+  ─────────────────────────────────────────────────────
+  OTHER COMMANDS
+
+  dev doctor          check system health
+  dev update          refresh cache, show upgrades
+  dev theme [name]    list or apply color themes
+  dev spore <pkgs>    temporary shell with extra packages
+  dev spread          export config for a fresh install
+  dev services        show or validate service state
+  dev active          show current generation details
+
+  ─────────────────────────────────────────────────────
+  SERVICES
+
+  services are declared in devysix.toml under [services].
+  service definitions live in /usr/lib/devysix/services/.
+  mycel-compose compiles them into s6-rc on each 'dev switch'.
+
+  ─────────────────────────────────────────────────────
+  RHIZOMATIC DESIGN
+
+  no central authority. every component connects directly.
+  your config is the system. the system is your config.
+
+EOF

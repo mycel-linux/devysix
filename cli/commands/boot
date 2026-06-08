@@ -1,0 +1,19 @@
+#!/bin/sh
+# dev boot <id> — apply a specific generation's config on next boot
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+BOOT_MARKER="/etc/devysix/.boot-generation"
+
+. "$LIB_DIR/generations.sh"
+
+die() { echo "dev boot: $1" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must be run as root"
+[ -z "$1" ]          && die "usage: dev boot <generation-id>"
+
+gen_dir="$(gen_path "$1")"
+[ -d "$gen_dir" ]    || die "generation $1 not found"
+
+echo "$1" > "$BOOT_MARKER"
+echo "dev: generation $1 will be applied on next boot"
+echo "     (rc.init reads $BOOT_MARKER before starting s6-rc)"

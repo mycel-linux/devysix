@@ -1,0 +1,68 @@
+#!/bin/sh
+# dev theme [name] — list or apply color themes
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+THEMES_DIR="${DEVYSIX_THEMES:-$LIB_DIR/themes}"
+
+. "$LIB_DIR/toml.sh"
+
+# ── list ─────────────────────────────────────────────────────────────────────
+
+if [ -z "$1" ]; then
+    current="$(toml_get "$DEVYSIX_CONFIG" theme name 2>/dev/null)"
+    echo "available themes:"
+    for f in "$THEMES_DIR"/*.toml; do
+        [ -f "$f" ] || continue
+        name="$(toml_get "$f" theme name)"
+        desc="$(toml_get "$f" theme description)"
+        marker="  "; [ "$name" = "$current" ] && marker="* "
+        printf "%s%-12s  %s\n" "$marker" "$name" "$desc"
+    done
+    exit 0
+fi
+
+# ── apply ─────────────────────────────────────────────────────────────────────
+
+theme_file="$THEMES_DIR/$1.toml"
+[ -f "$theme_file" ] || { echo "dev theme: theme '$1' not found" >&2; exit 1; }
+
+bg="$(toml_get "$theme_file" colors background)"
+fg="$(toml_get "$theme_file" colors foreground)"
+accent="$(toml_get "$theme_file" colors accent)"
+
+# write a shell-sourceable palette for DE-specific hooks
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/devysix"
+mkdir -p "$cache_dir"
+{
+    echo "DEVYSIX_THEME_NAME=\"$1\""
+    for key in background foreground accent accent2 \
+                black red green yellow blue magenta cyan white; do
+        val="$(toml_get "$theme_file" colors "$key")"
+        upper="$(echo "$key" | tr '[:lower:]' '[:upper:]')"
+        echo "DEVYSIX_COLOR_${upper}=\"${val}\""
+    done
+} > "$cache_dir/theme.sh"
+
+# apply to active terminal via ANSI OSC sequences
+_hex_to_rgb() {
+    h="${1#\#}"
+    r="$(printf '%d' "0x${h%????}")"
+    g="$(printf '%d' "0x$(echo "$h" | cut -c3-4)")"
+    b="$(printf '%d' "0x${h#????}")"
+    echo "$r/$g/$b"
+}
+
+printf '\033]10;%s\007' "$(echo "$fg" | sed 's/#/rgb:/' | sed 's/../&\//g;s/\/$//')" 2>/dev/null || true
+printf '\033]11;%s\007' "$(echo "$bg" | sed 's/#/rgb:/' | sed 's/../&\//g;s/\/$//')" 2>/dev/null || true
+
+# write theme name into devysix.toml [theme] section if it exists, else note it
+if grep -q '^\[theme\]' "$DEVYSIX_CONFIG" 2>/dev/null; then
+    toml_set "$DEVYSIX_CONFIG" theme name "$1"
+else
+    printf '\n[theme]\nname = "%s"\n' "$1" >> "$DEVYSIX_CONFIG"
+fi
+
+echo "dev: theme '$1' applied"
+echo "  palette cached at $cache_dir/theme.sh"
+echo "  DE-specific hooks: source $cache_dir/theme.sh in your DE config"

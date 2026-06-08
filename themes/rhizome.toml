@@ -1,0 +1,17 @@
+[theme]
+name        = "rhizome"
+description = "deep purple, the devysix default"
+
+[colors]
+background  = "#1a0d2e"
+foreground  = "#e0d0f0"
+accent      = "#9b59d4"
+accent2     = "#6a2fa0"
+black       = "#0d0016"
+red         = "#c04080"
+green       = "#60c080"
+yellow      = "#c0a040"
+blue        = "#6070d0"
+magenta     = "#9b59d4"
+cyan        = "#40b0c0"
+white       = "#d0c0e0"

@@ -1,0 +1,28 @@
+#!/bin/sh
+# dev spread [--export <path>] — export devysix.toml for use on a fresh install
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+die() { echo "dev spread: $1" >&2; exit 1; }
+
+[ -f "$DEVYSIX_CONFIG" ] || die "config not found at $DEVYSIX_CONFIG"
+
+export_path=""
+while [ -n "$1" ]; do
+    case "$1" in
+        --export) shift; export_path="$1" ;;
+        *)        die "usage: dev spread [--export <path>]" ;;
+    esac
+    shift
+done
+
+if [ -n "$export_path" ]; then
+    cp "$DEVYSIX_CONFIG" "$export_path" \
+        && echo "dev: config exported to $export_path" \
+        || die "export failed"
+else
+    echo "# devysix config — copy to /etc/devysix/devysix.toml on a fresh install"
+    echo "# then run: devysix-setup (or dev switch after installing devysix tooling)"
+    echo ""
+    cat "$DEVYSIX_CONFIG"
+fi

@@ -1,0 +1,52 @@
+#!/bin/sh
+# dev spore <pkg...> — temporary shell with extra packages; removed on exit
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+. "$LIB_DIR/toml.sh"
+
+die() { echo "dev spore: $1" >&2; exit 1; }
+
+[ -z "$1" ]            && die "usage: dev spore <package> [package...]"
+[ "$(id -u)" -eq 0 ]   || die "must be run as root"
+
+spore_pkgs="$*"
+
+# don't install packages already declared in devysix.toml
+already=""
+for pkg in $spore_pkgs; do
+    toml_array_contains "$DEVYSIX_CONFIG" packages installed "$pkg" \
+        && already="$already $pkg"
+done
+
+to_install=""
+for pkg in $spore_pkgs; do
+    echo "$already" | grep -qw "$pkg" && continue
+    dpkg -s "$pkg" >/dev/null 2>&1    && already="$already $pkg" && continue
+    to_install="$to_install $pkg"
+done
+
+if [ -n "$to_install" ]; then
+    echo "dev spore: installing$to_install"
+    # shellcheck disable=SC2086
+    apt-get install -y $to_install || die "install failed"
+fi
+
+echo "dev spore: entering spore shell (exit to clean up)"
+echo "dev spore: temporary:$to_install"
+echo ""
+
+# drop into a subshell with a prompt indicator
+DEVYSIX_SPORE="$to_install" PS1="(spore) $PS1" "${SHELL:-/bin/sh}"
+
+# cleanup on exit
+if [ -n "$to_install" ]; then
+    echo ""
+    echo "dev spore: removing$to_install"
+    # shellcheck disable=SC2086
+    apt-get remove -y $to_install
+    apt-get autoremove -y -qq
+fi
+
+echo "dev spore: done"

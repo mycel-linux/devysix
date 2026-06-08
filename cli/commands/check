@@ -1,0 +1,27 @@
+#!/bin/sh
+# dev check — show pending upgrades without downloading anything
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
+
+echo "dev: checking declared packages (no download)..."
+upgradable=""
+while IFS= read -r pkg; do
+    [ -z "$pkg" ] && continue
+    result="$(apt-cache policy "$pkg" 2>/dev/null)"
+    installed="$(echo "$result" | awk '/Installed:/{print $2}')"
+    candidate="$(echo "$result" | awk '/Candidate:/{print $2}')"
+    [ "$installed" != "$candidate" ] && [ "$installed" != "(none)" ] \
+        && upgradable="$upgradable\n  $pkg  $installed → $candidate"
+done <<EOF
+$(toml_get_array "$DEVYSIX_CONFIG" packages installed)
+EOF
+
+if [ -n "$upgradable" ]; then
+    echo "upgradable:"
+    printf "%b\n" "$upgradable"
+else
+    echo "dev: all declared packages up to date"
+fi

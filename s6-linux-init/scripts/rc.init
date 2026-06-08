@@ -26,6 +26,19 @@ mkdir -p /run/s6 /run/s6-rc "$S6_SVSCAN_DIR"
 [ -f /etc/locale.conf ] && . /etc/locale.conf && export LANG
 [ -L /etc/localtime ]   || ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
+# ── generation boot override ─────────────────────────────────────────────────
+
+BOOT_MARKER="/etc/devysix/.boot-generation"
+if [ -f "$BOOT_MARKER" ]; then
+    gen_id="$(cat "$BOOT_MARKER")"
+    gen_cfg="/var/lib/devysix/generations/$gen_id/devysix.toml"
+    if [ -f "$gen_cfg" ]; then
+        cp "$gen_cfg" /etc/devysix/devysix.toml
+        echo "rc.init: booted with generation $gen_id"
+    fi
+    rm -f "$BOOT_MARKER"
+fi
+
 # ── s6-rc ─────────────────────────────────────────────────────────────────────
 
 if [ ! -d "$S6RC_COMPILED" ]; then

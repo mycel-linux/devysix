@@ -1,0 +1,93 @@
+#!/bin/sh
+# dev doctor — system diagnostics
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+S6RC_COMPILED="/etc/s6-rc/compiled"
+S6RC_LIVE="/run/s6-rc"
+
+. "$LIB_DIR/toml.sh"
+. "$LIB_DIR/generations.sh"
+
+pass=0; warn=0; fail=0
+
+ok()   { printf "  [ ok ]  %s\n" "$1";      pass=$((pass+1)); }
+warn() { printf "  [warn]  %s\n" "$1";      warn=$((warn+1)); }
+fail() { printf "  [FAIL]  %s\n" "$1";      fail=$((fail+1)); }
+
+echo "dev doctor — running diagnostics"
+echo ""
+
+# ── config ────────────────────────────────────────────────────────────────────
+
+echo "[ config ]"
+if [ -f "$DEVYSIX_CONFIG" ]; then
+    ok "devysix.toml found"
+    hostname="$(toml_get "$DEVYSIX_CONFIG" system hostname)"
+    [ -n "$hostname" ] && ok "hostname set: $hostname" || warn "hostname not set"
+    tz="$(toml_get "$DEVYSIX_CONFIG" system timezone)"
+    [ -f "/usr/share/zoneinfo/$tz" ] && ok "timezone valid: $tz" || fail "invalid timezone: $tz"
+    locale="$(toml_get "$DEVYSIX_CONFIG" system locale)"
+    [ -n "$locale" ] && ok "locale set: $locale" || warn "locale not set"
+else
+    fail "devysix.toml not found at $DEVYSIX_CONFIG"
+fi
+
+# ── generations ───────────────────────────────────────────────────────────────
+
+echo ""
+echo "[ generations ]"
+current="$(gen_current)"
+if [ "$current" != "none" ]; then
+    ok "current generation: $current"
+else
+    warn "no generation recorded — run 'dev switch' to create one"
+fi
+
+gen_count="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null | grep -c '^[0-9]' || echo 0)"
+ok "$gen_count generation(s) stored"
+
+# ── packages ──────────────────────────────────────────────────────────────────
+
+echo ""
+echo "[ packages ]"
+if [ -f "$DEVYSIX_CONFIG" ]; then
+    missing=""
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        dpkg -s "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"
+    done <<EOF
+$(toml_get_array "$DEVYSIX_CONFIG" packages installed)
+EOF
+    if [ -z "$missing" ]; then
+        ok "all declared packages installed"
+    else
+        for p in $missing; do fail "not installed: $p"; done
+    fi
+fi
+
+# ── s6 / services ─────────────────────────────────────────────────────────────
+
+echo ""
+echo "[ s6 ]"
+command -v s6-rc        >/dev/null 2>&1 && ok "s6-rc in PATH"       || fail "s6-rc not found"
+command -v s6-rc-compile >/dev/null 2>&1 && ok "s6-rc-compile found" || warn "s6-rc-compile not found"
+[ -d "$S6RC_COMPILED" ] && ok "compiled s6-rc database exists"       || warn "no compiled s6-rc database — run 'dev switch'"
+[ -d "$S6RC_LIVE" ]     && ok "s6-rc live dir present"               || warn "s6-rc live dir absent — not running under s6?"
+command -v mycel-compose >/dev/null 2>&1 && ok "mycel-compose found" || warn "mycel-compose not installed"
+
+# ── system ────────────────────────────────────────────────────────────────────
+
+echo ""
+echo "[ system ]"
+[ -f /etc/hostname ]   && ok "hostname file: $(cat /etc/hostname)" || warn "/etc/hostname missing"
+[ -L /etc/localtime ]  && ok "localtime symlink present"            || warn "/etc/localtime not set"
+[ -f /etc/locale.conf ] && ok "locale.conf: $(cat /etc/locale.conf)" || warn "/etc/locale.conf missing"
+[ -x /sbin/init ]      && ok "/sbin/init present"                   || warn "/sbin/init missing"
+
+# ── summary ───────────────────────────────────────────────────────────────────
+
+echo ""
+echo "─────────────────────────────────"
+printf "  ok: %d   warn: %d   fail: %d\n" "$pass" "$warn" "$fail"
+[ "$fail" -gt 0 ] && exit 1 || exit 0

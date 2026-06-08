@@ -1,0 +1,34 @@
+#!/bin/sh
+# dev update — refresh apt cache and show upgrades for declared packages
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
+
+[ "$(id -u)" -eq 0 ] || { echo "dev update: must be run as root" >&2; exit 1; }
+
+echo "dev: refreshing package cache..."
+apt-get update -qq || { echo "dev update: apt-get update failed" >&2; exit 1; }
+
+echo "dev: checking declared packages for upgrades..."
+upgradable=""
+while IFS= read -r pkg; do
+    [ -z "$pkg" ] && continue
+    result="$(apt-cache policy "$pkg" 2>/dev/null)"
+    installed="$(echo "$result" | awk '/Installed:/{print $2}')"
+    candidate="$(echo "$result" | awk '/Candidate:/{print $2}')"
+    [ "$installed" != "$candidate" ] && [ "$installed" != "(none)" ] \
+        && upgradable="$upgradable\n  $pkg  $installed → $candidate"
+done <<EOF
+$(toml_get_array "$DEVYSIX_CONFIG" packages installed)
+EOF
+
+if [ -n "$upgradable" ]; then
+    echo "upgradable:"
+    printf "%b\n" "$upgradable"
+    echo ""
+    echo "run 'apt-get upgrade' or 'dev switch' to apply"
+else
+    echo "dev: all declared packages up to date"
+fi
