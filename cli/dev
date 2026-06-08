@@ -1,0 +1,39 @@
+#!/bin/sh
+# devysix system manager
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+COMMANDS_DIR="$(dirname "$(realpath "$0")")/commands"
+
+cmd="$1"
+shift
+
+case "$cmd" in
+    edit|switch|lock|unlock|apps|rollback|diff|purge|doctor|update|check|theme|spore|spread|guide|active|network|boot)
+        exec "$COMMANDS_DIR/$cmd" "$@"
+        ;;
+    ""|--help|-h)
+        cat <<EOF
+dev — devysix system manager
+
+  dev edit              open devysix.toml in editor
+  dev switch            apply devysix.toml to the system
+  dev apps              manage applications
+  dev lock <pkg>        pin package across rollbacks
+  dev unlock <pkg>      unpin package
+  dev rollback [id]     revert to previous or specific generation
+  dev diff <a> <b>      compare two generations
+  dev purge             remove old generations
+  dev doctor            run system diagnostics
+  dev update            refresh package cache
+  dev check             show pending updates
+  dev theme [name]      display or apply themes
+  dev spore <pkgs>      temporary shell with extra packages
+  dev spread            export config for fresh install
+  dev guide             launch tutorial
+EOF
+        ;;
+    *)
+        echo "dev: unknown command '$cmd'" >&2
+        exit 1
+        ;;
+esac

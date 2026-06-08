@@ -1,0 +1,8 @@
+[desktop]
+name = "gnome"
+packages = [
+    "gnome-core",
+    "gnome-tweaks",
+    "gdm3",
+]
+services = ["gdm3"]

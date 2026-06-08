@@ -1,0 +1,9 @@
+[desktop]
+name = "hyprland"
+packages = [
+    "hyprland",
+    "waybar",
+    "foot",
+    "wofi",
+]
+services = []

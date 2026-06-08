@@ -1,0 +1,38 @@
+#!/bin/sh
+# devysix first-boot setup — runs once after Devuan netinstall
+# selects DE, installs s6, applies devysix.toml
+
+DESKTOPS_DIR="/usr/share/devysix/desktops"
+CONFIG="/etc/devysix/devysix.toml"
+
+echo "Welcome to Devysix"
+echo "-------------------"
+echo "Select a desktop environment:"
+echo "  1) GNOME"
+echo "  2) labwc"
+echo "  3) Sway"
+echo "  4) KDE Plasma"
+echo "  5) Hyprland"
+printf "Choice [1-5]: "
+read -r choice
+
+case "$choice" in
+    1) DE="gnome"     ;;
+    2) DE="labwc"     ;;
+    3) DE="sway"      ;;
+    4) DE="kde"       ;;
+    5) DE="hyprland"  ;;
+    *) echo "Invalid choice." >&2; exit 1 ;;
+esac
+
+echo "dev: installing s6 suite..."
+apt-get install -y s6 s6-rc s6-linux-init
+
+echo "dev: installing $DE..."
+# parse desktops/$DE.toml and apt-get install the package list
+# TODO: TOML parser call here
+
+echo "dev: applying devysix.toml..."
+dev switch
+
+echo "Devysix setup complete. Reboot to start."

@@ -1,0 +1,3 @@
+#!/bin/sh
+# stage 1 init — hand off to s6-rc
+exec s6-linux-init-rc "$@"

@@ -1,0 +1,7 @@
+[desktop]
+name = "kde"
+packages = [
+    "kde-plasma-desktop",
+    "sddm",
+]
+services = ["sddm"]

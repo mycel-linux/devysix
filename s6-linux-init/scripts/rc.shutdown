@@ -1,0 +1,3 @@
+#!/bin/sh
+# graceful shutdown via s6-rc
+exec s6-linux-init-hpr -p

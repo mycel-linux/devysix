@@ -1,0 +1,29 @@
+[system]
+hostname = "devysix"
+locale   = "en_US.UTF-8"
+timezone = "UTC"
+kernel   = "linux-image-amd64"
+
+[desktop]
+environment = "sway"   # gnome | labwc | sway | kde | hyprland
+
+[packages]
+# packages declared here are managed by devysix — removed from this list = uninstalled on dev switch
+installed = [
+    "base-files",
+    "s6",
+    "s6-rc",
+    "s6-linux-init",
+]
+
+# packages that survive rollbacks
+locked = []
+
+[services]
+# mycel-compose service declarations go here
+
+[users]
+# [[users.user]]
+# name     = "alice"
+# groups   = ["wheel", "audio", "video"]
+# shell    = "/bin/bash"

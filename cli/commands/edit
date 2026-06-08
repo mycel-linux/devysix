@@ -1,0 +1,3 @@
+#!/bin/sh
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+exec "${EDITOR:-nano}" "$DEVYSIX_CONFIG"

@@ -1,0 +1,11 @@
+#!/bin/sh
+# apply devysix.toml — packages, services, hostname, locale, timezone
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+if [ ! -f "$DEVYSIX_CONFIG" ]; then
+    echo "dev switch: config not found at $DEVYSIX_CONFIG" >&2
+    exit 1
+fi
+
+echo "dev: applying $DEVYSIX_CONFIG ..."
+# TODO: parse TOML and apply each section

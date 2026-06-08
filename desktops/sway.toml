@@ -1,0 +1,12 @@
+[desktop]
+name = "sway"
+packages = [
+    "sway",
+    "swaybar",
+    "swaybg",
+    "swaylock",
+    "waybar",
+    "foot",
+    "wofi",
+]
+services = []

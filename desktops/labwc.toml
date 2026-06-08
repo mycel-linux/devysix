@@ -1,0 +1,9 @@
+[desktop]
+name = "labwc"
+packages = [
+    "labwc",
+    "waybar",
+    "foot",
+    "wofi",
+]
+services = []

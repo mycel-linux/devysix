@@ -1,0 +1,6 @@
+#!/bin/sh
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+[ -z "$1" ] && { echo "usage: dev unlock <package>" >&2; exit 1; }
+echo "dev: unlocking $1"
+# TODO: remove locked = true for package entry in devysix.toml
