@@ -1,0 +1,37 @@
+#!/bin/sh
+# dev rollback [id] — revert to previous or specific generation
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/generations.sh"
+
+die() { echo "dev rollback: $1" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must be run as root"
+
+current="$(gen_current)"
+
+if [ -n "$1" ]; then
+    target="$1"
+else
+    # default: one generation back from current
+    if [ "$current" = "none" ]; then
+        die "no current generation recorded — specify an id explicitly"
+    fi
+    target="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null \
+        | grep -E '^[0-9]+$' \
+        | sort -n \
+        | awk -v cur="$current" '$1 < cur' \
+        | tail -1)"
+    [ -z "$target" ] && die "no previous generation to roll back to"
+fi
+
+gen_dir="$(gen_path "$target")"
+[ -d "$gen_dir" ] || die "generation $target not found"
+
+echo "dev: rolling back to generation $target (current: $current)"
+cp "$gen_dir/devysix.toml" "$DEVYSIX_CONFIG"
+
+# switch re-snapshots and applies — this becomes the new current generation
+exec "$(dirname "$(realpath "$0")")/switch"

@@ -1,0 +1,43 @@
+#!/bin/sh
+# dev purge — remove old generations, keep the last N
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/generations.sh"
+
+die() { echo "dev purge: $1" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must be run as root"
+
+keep=3
+while [ -n "$1" ]; do
+    case "$1" in
+        --keep) shift; keep="$1" ;;
+        *)      die "usage: dev purge [--keep N]" ;;
+    esac
+    shift
+done
+
+current="$(gen_current)"
+
+all="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null | grep -E '^[0-9]+$' | sort -n)"
+total="$(echo "$all" | grep -c '[0-9]')"
+
+if [ "$total" -le "$keep" ]; then
+    echo "dev: $total generation(s) present, nothing to purge (keeping $keep)"
+    exit 0
+fi
+
+to_remove="$(echo "$all" | head -n "$(( total - keep ))")"
+
+for id in $to_remove; do
+    if [ "$id" = "$current" ]; then
+        echo "  skipping generation $id (current)"
+        continue
+    fi
+    echo "  removing generation $id"
+    rm -rf "$DEVYSIX_GEN_DIR/$id"
+done
+
+remaining="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null | grep -E '^[0-9]+$' | grep -c '[0-9]')"
+echo "dev: purge complete — $remaining generation(s) remaining"

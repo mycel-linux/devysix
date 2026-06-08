@@ -1,0 +1,66 @@
+#!/bin/sh
+# dev diff <a> <b> — compare two generations
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/generations.sh"
+. "$LIB_DIR/toml.sh"
+
+die() { echo "dev diff: $1" >&2; exit 1; }
+
+[ -n "$1" ] && [ -n "$2" ] || die "usage: dev diff <gen-a> <gen-b>"
+
+dir_a="$(gen_path "$1")"
+dir_b="$(gen_path "$2")"
+
+[ -d "$dir_a" ] || die "generation $1 not found"
+[ -d "$dir_b" ] || die "generation $2 not found"
+
+cfg_a="$dir_a/devysix.toml"
+cfg_b="$dir_b/devysix.toml"
+
+echo "dev: diff generation $1 → $2"
+echo ""
+
+# ── system config changes ─────────────────────────────────────────────────────
+
+changed=0
+for key in hostname locale timezone kernel; do
+    val_a="$(toml_get "$cfg_a" system "$key")"
+    val_b="$(toml_get "$cfg_b" system "$key")"
+    if [ "$val_a" != "$val_b" ]; then
+        [ $changed -eq 0 ] && echo "[system]"
+        changed=1
+        printf "  %-12s  %s → %s\n" "$key" "$val_a" "$val_b"
+    fi
+done
+[ $changed -eq 1 ] && echo ""
+
+de_a="$(toml_get "$cfg_a" desktop environment)"
+de_b="$(toml_get "$cfg_b" desktop environment)"
+if [ "$de_a" != "$de_b" ]; then
+    echo "[desktop]"
+    printf "  %-12s  %s → %s\n" "environment" "$de_a" "$de_b"
+    echo ""
+fi
+
+# ── package changes ───────────────────────────────────────────────────────────
+
+tmp_a="$(mktemp)"; tmp_b="$(mktemp)"
+toml_get_array "$cfg_a" packages installed | sort > "$tmp_a"
+toml_get_array "$cfg_b" packages installed | sort > "$tmp_b"
+
+added="$(comm -13 "$tmp_a" "$tmp_b")"
+removed="$(comm -23 "$tmp_a" "$tmp_b")"
+rm -f "$tmp_a" "$tmp_b"
+
+if [ -n "$added" ] || [ -n "$removed" ]; then
+    echo "[packages]"
+    echo "$added"   | grep -v '^$' | sed 's/^/  + /'
+    echo "$removed" | grep -v '^$' | sed 's/^/  - /'
+    echo ""
+fi
+
+[ $changed -eq 0 ] && [ -z "$added" ] && [ -z "$removed" ] \
+    && [ "$de_a" = "$de_b" ] \
+    && echo "no differences between generation $1 and $2"

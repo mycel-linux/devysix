@@ -1,0 +1,13 @@
+#!/bin/sh
+# dev network — list all generations
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/generations.sh"
+
+current="$(gen_current)"
+echo "generations (current: $current):"
+echo ""
+printf "  %-5s  %-30s  %s\n" "id" "timestamp" "hostname"
+printf "  %-5s  %-30s  %s\n" "---" "----------------------------" "--------"
+gen_list

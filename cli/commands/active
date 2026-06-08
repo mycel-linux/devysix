@@ -1,0 +1,28 @@
+#!/bin/sh
+# dev active — show the current generation and system state
+
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/generations.sh"
+. "$LIB_DIR/toml.sh"
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+
+current="$(gen_current)"
+echo "current generation: $current"
+
+if [ "$current" != "none" ]; then
+    dir="$(gen_path "$current")"
+    ts="$(cat "$dir/timestamp" 2>/dev/null)"
+    echo "applied:            $ts"
+fi
+
+echo ""
+echo "system:"
+printf "  hostname  %s\n" "$(toml_get "$DEVYSIX_CONFIG" system hostname)"
+printf "  locale    %s\n" "$(toml_get "$DEVYSIX_CONFIG" system locale)"
+printf "  timezone  %s\n" "$(toml_get "$DEVYSIX_CONFIG" system timezone)"
+printf "  desktop   %s\n" "$(toml_get "$DEVYSIX_CONFIG" desktop environment)"
+echo ""
+echo "packages ($(toml_get_array "$DEVYSIX_CONFIG" packages installed | wc -l) declared):"
+toml_get_array "$DEVYSIX_CONFIG" packages installed | sed 's/^/  /'
