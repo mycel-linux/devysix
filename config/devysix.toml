@@ -14,6 +14,7 @@ installed = [
     "s6",
     "s6-rc",
     "s6-linux-init",
+    "fastfetch",
 ]
 
 # packages that survive rollbacks
@@ -36,3 +37,6 @@ enabled = [
 # name     = "alice"
 # groups   = ["wheel", "audio", "video"]
 # shell    = "/bin/bash"
+
+[theme]
+name = "rhizome"

@@ -7,6 +7,55 @@ THEMES_DIR="${DEVYSIX_THEMES:-$LIB_DIR/themes}"
 
 . "$LIB_DIR/toml.sh"
 
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+# emit OSC 4 to set one of the 16 ANSI palette entries
+# _osc4 <index> <#rrggbb>
+_osc4() {
+    printf '\033]4;%d;%s\007' "$1" "$2"
+}
+
+# emit OSC 10/11 for default fg/bg
+_osc10() { printf '\033]10;%s\007' "$1"; }
+_osc11() { printf '\033]11;%s\007' "$1"; }
+
+# write foot terminal color block to ~/.config/foot/foot.ini
+_apply_foot() {
+    foot_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/foot/foot.ini"
+    [ -f "$foot_cfg" ] || return 0
+
+    tmpf="$(mktemp)"
+    awk '
+        /^\[colors\]/ { skip=1 }
+        skip && /^\[/ && !/^\[colors\]/ { skip=0 }
+        !skip { print }
+    ' "$foot_cfg" > "$tmpf"
+
+    cat >> "$tmpf" <<EOF
+
+[colors]
+background=${bg#\#}
+foreground=${fg#\#}
+regular0=${black#\#}
+regular1=${red#\#}
+regular2=${green#\#}
+regular3=${yellow#\#}
+regular4=${blue#\#}
+regular5=${magenta#\#}
+regular6=${cyan#\#}
+regular7=${white#\#}
+bright0=${black#\#}
+bright1=${red#\#}
+bright2=${green#\#}
+bright3=${yellow#\#}
+bright4=${blue#\#}
+bright5=${magenta#\#}
+bright6=${cyan#\#}
+bright7=${white#\#}
+EOF
+    mv "$tmpf" "$foot_cfg"
+}
+
 # ── list ─────────────────────────────────────────────────────────────────────
 
 if [ -z "$1" ]; then
@@ -27,36 +76,76 @@ fi
 theme_file="$THEMES_DIR/$1.toml"
 [ -f "$theme_file" ] || { echo "dev theme: theme '$1' not found" >&2; exit 1; }
 
-bg="$(toml_get "$theme_file" colors background)"
-fg="$(toml_get "$theme_file" colors foreground)"
-accent="$(toml_get "$theme_file" colors accent)"
+bg="$(toml_get      "$theme_file" colors background)"
+fg="$(toml_get      "$theme_file" colors foreground)"
+black="$(toml_get   "$theme_file" colors black)"
+red="$(toml_get     "$theme_file" colors red)"
+green="$(toml_get   "$theme_file" colors green)"
+yellow="$(toml_get  "$theme_file" colors yellow)"
+blue="$(toml_get    "$theme_file" colors blue)"
+magenta="$(toml_get "$theme_file" colors magenta)"
+cyan="$(toml_get    "$theme_file" colors cyan)"
+white="$(toml_get   "$theme_file" colors white)"
+accent="$(toml_get  "$theme_file" colors accent)"
 
-# write a shell-sourceable palette for DE-specific hooks
-cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/devysix"
+# ── apply to current terminal via OSC sequences ───────────────────────────────
+
+_osc11 "$bg"
+_osc10 "$fg"
+_osc4  0 "$black"
+_osc4  1 "$red"
+_osc4  2 "$green"
+_osc4  3 "$yellow"
+_osc4  4 "$blue"
+_osc4  5 "$magenta"
+_osc4  6 "$cyan"
+_osc4  7 "$white"
+# bright variants — slightly lighter
+_osc4  8 "$black"
+_osc4  9 "$red"
+_osc4 10 "$green"
+_osc4 11 "$yellow"
+_osc4 12 "$blue"
+_osc4 13 "$accent"
+_osc4 14 "$cyan"
+_osc4 15 "$fg"
+
+# ── persist palette for new terminals ────────────────────────────────────────
+
+cache_dir="${XDG_CONFIG_HOME:-$HOME/.config}/devysix"
 mkdir -p "$cache_dir"
-{
-    echo "DEVYSIX_THEME_NAME=\"$1\""
-    for key in background foreground accent accent2 \
-                black red green yellow blue magenta cyan white; do
-        val="$(toml_get "$theme_file" colors "$key")"
-        upper="$(echo "$key" | tr '[:lower:]' '[:upper:]')"
-        echo "DEVYSIX_COLOR_${upper}=\"${val}\""
-    done
-} > "$cache_dir/theme.sh"
 
-# apply to active terminal via ANSI OSC sequences
-_hex_to_rgb() {
-    h="${1#\#}"
-    r="$(printf '%d' "0x${h%????}")"
-    g="$(printf '%d' "0x$(echo "$h" | cut -c3-4)")"
-    b="$(printf '%d' "0x${h#????}")"
-    echo "$r/$g/$b"
+cat > "$cache_dir/theme.sh" <<EOF
+# devysix theme: $1 — source this in your shell init to apply colors on startup
+_devysix_apply_theme() {
+    printf '\\033]11;${bg}\\007'
+    printf '\\033]10;${fg}\\007'
+    printf '\\033]4;0;${black}\\007'
+    printf '\\033]4;1;${red}\\007'
+    printf '\\033]4;2;${green}\\007'
+    printf '\\033]4;3;${yellow}\\007'
+    printf '\\033]4;4;${blue}\\007'
+    printf '\\033]4;5;${magenta}\\007'
+    printf '\\033]4;6;${cyan}\\007'
+    printf '\\033]4;7;${white}\\007'
+    printf '\\033]4;8;${black}\\007'
+    printf '\\033]4;9;${red}\\007'
+    printf '\\033]4;10;${green}\\007'
+    printf '\\033]4;11;${yellow}\\007'
+    printf '\\033]4;12;${blue}\\007'
+    printf '\\033]4;13;${accent}\\007'
+    printf '\\033]4;14;${cyan}\\007'
+    printf '\\033]4;15;${fg}\\007'
 }
+_devysix_apply_theme
+EOF
 
-printf '\033]10;%s\007' "$(echo "$fg" | sed 's/#/rgb:/' | sed 's/../&\//g;s/\/$//')" 2>/dev/null || true
-printf '\033]11;%s\007' "$(echo "$bg" | sed 's/#/rgb:/' | sed 's/../&\//g;s/\/$//')" 2>/dev/null || true
+# ── write foot config ─────────────────────────────────────────────────────────
 
-# write theme name into devysix.toml [theme] section if it exists, else note it
+_apply_foot
+
+# ── write devysix.toml ────────────────────────────────────────────────────────
+
 if grep -q '^\[theme\]' "$DEVYSIX_CONFIG" 2>/dev/null; then
     toml_set "$DEVYSIX_CONFIG" theme name "$1"
 else
@@ -64,5 +153,5 @@ else
 fi
 
 echo "dev: theme '$1' applied"
-echo "  palette cached at $cache_dir/theme.sh"
-echo "  DE-specific hooks: source $cache_dir/theme.sh in your DE config"
+echo "  to apply on new terminals: add to ~/.bashrc or ~/.profile:"
+echo "    [ -f ~/.config/devysix/theme.sh ] && . ~/.config/devysix/theme.sh"

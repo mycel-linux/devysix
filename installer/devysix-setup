@@ -169,6 +169,7 @@ installed = [
     "s6",
     "s6-rc",
     "s6-linux-init",
+    "fastfetch",
 $(echo "$de_pkgs" | sed 's/^/    "/;s/$/",/')
 ]
 locked = []
@@ -213,6 +214,20 @@ if command -v mycel-compose >/dev/null 2>&1; then
 else
     echo "  warning: mycel-compose not found — skipping service compile"
     echo "  run 'dev services validate' after installing mycel-compose"
+fi
+
+# ── shell init for theme + fastfetch ─────────────────────────────────────────
+
+skel_profile="/etc/skel/.profile"
+if ! grep -q 'devysix/theme.sh' "$skel_profile" 2>/dev/null; then
+    cat >> "$skel_profile" <<'PROFILE'
+
+# devysix: apply active color theme to terminal
+[ -f ~/.config/devysix/theme.sh ] && . ~/.config/devysix/theme.sh
+
+# devysix: show system info on login
+command -v fastfetch >/dev/null 2>&1 && fastfetch
+PROFILE
 fi
 
 # ── apply hostname / timezone / locale ───────────────────────────────────────
