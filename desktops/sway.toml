@@ -9,4 +9,5 @@ packages = [
     "foot",
     "wofi",
 ]
-services = []
+services = ["greetd"]
+display_manager = "greetd"

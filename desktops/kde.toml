@@ -5,3 +5,4 @@ packages = [
     "sddm",
 ]
 services = ["sddm"]
+display_manager = "sddm"

@@ -1,0 +1,6 @@
+name = "gdm3"
+kind = "longrun"
+needs = ["dbus", "elogind", "udev-trigger"]
+bundles = ["default"]
+exec = "/usr/sbin/gdm3"
+log = true

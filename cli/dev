@@ -2,7 +2,8 @@
 # devysix system manager
 
 DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
-COMMANDS_DIR="$(dirname "$(realpath "$0")")/commands"
+DEVYSIX_LIB="${DEVYSIX_LIB:-/usr/lib/devysix}"
+COMMANDS_DIR="${DEVYSIX_COMMANDS:-$DEVYSIX_LIB/commands}"
 
 cmd="$1"
 shift

@@ -1,0 +1,6 @@
+name = "greetd"
+kind = "longrun"
+needs = ["seatd", "udev-trigger"]
+bundles = ["default"]
+exec = "/usr/sbin/greetd"
+log = true

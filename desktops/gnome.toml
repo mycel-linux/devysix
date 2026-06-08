@@ -6,3 +6,4 @@ packages = [
     "gdm3",
 ]
 services = ["gdm3"]
+display_manager = "gdm3"

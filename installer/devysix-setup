@@ -1,38 +1,243 @@
 #!/bin/sh
-# devysix first-boot setup — runs once after Devuan netinstall
-# selects DE, installs s6, applies devysix.toml
+# devysix-setup — first-boot setup, runs once after Devuan netinstall
 
-DESKTOPS_DIR="/usr/share/devysix/desktops"
-CONFIG="/etc/devysix/devysix.toml"
+DEVYSIX_CONFIG="/etc/devysix/devysix.toml"
+DEVYSIX_LIB="/usr/lib/devysix"
+DESKTOPS_DIR="$DEVYSIX_LIB/desktops"
+SERVICES_DIR="$DEVYSIX_LIB/services"
+SETUP_DONE="/etc/devysix/.setup-done"
+S6RC_SOURCE="/etc/s6-rc/source"
+S6RC_COMPILED="/etc/s6-rc/compiled"
 
-echo "Welcome to Devysix"
-echo "-------------------"
-echo "Select a desktop environment:"
+die()  { echo "devysix-setup: error: $1" >&2; exit 1; }
+info() { echo "  ==> $1"; }
+ask()  { printf "%s " "$1"; read -r REPLY; echo "$REPLY"; }
+
+[ "$(id -u)" -eq 0 ] || die "must be run as root"
+[ -f "$SETUP_DONE" ]  && { echo "devysix: already set up"; exit 0; }
+
+. "$DEVYSIX_LIB/toml.sh"
+
+# ── banner ────────────────────────────────────────────────────────────────────
+
+clear
+cat <<'EOF'
+  ██████╗ ███████╗██╗   ██╗██╗   ██╗███████╗██╗██╗  ██╗
+  ██╔══██╗██╔════╝██║   ██║╚██╗ ██╔╝██╔════╝██║╚██╗██╔╝
+  ██║  ██║█████╗  ██║   ██║ ╚████╔╝ ███████╗██║ ╚███╔╝
+  ██║  ██║██╔══╝  ╚██╗ ██╔╝  ╚██╔╝  ╚════██║██║ ██╔██╗
+  ██████╔╝███████╗ ╚████╔╝    ██║   ███████║██║██╔╝ ██╗
+  ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝   ╚══════╝╚═╝╚═╝  ╚═╝
+                     declarative. immutable. yours.
+EOF
+echo ""
+
+# ── gather system info ────────────────────────────────────────────────────────
+
+echo "[ system ]"
+printf "  hostname [devysix]: "; read -r hostname
+hostname="${hostname:-devysix}"
+
+printf "  timezone [UTC]: "; read -r timezone
+timezone="${timezone:-UTC}"
+[ -f "/usr/share/zoneinfo/$timezone" ] || die "unknown timezone: $timezone"
+
+printf "  locale [en_US.UTF-8]: "; read -r locale
+locale="${locale:-en_US.UTF-8}"
+echo ""
+
+# ── gather user info ──────────────────────────────────────────────────────────
+
+echo "[ user ]"
+printf "  username: "; read -r username
+[ -z "$username" ] && die "username cannot be empty"
+
+stty -echo
+printf "  password: "; read -r password; echo ""
+printf "  confirm:  "; read -r password2; echo ""
+stty echo
+[ "$password" = "$password2" ] || die "passwords do not match"
+echo ""
+
+# ── DE selection ──────────────────────────────────────────────────────────────
+
+echo "[ desktop environment ]"
 echo "  1) GNOME"
 echo "  2) labwc"
 echo "  3) Sway"
 echo "  4) KDE Plasma"
 echo "  5) Hyprland"
-printf "Choice [1-5]: "
-read -r choice
+printf "  choice [3]: "; read -r de_choice
+de_choice="${de_choice:-3}"
 
-case "$choice" in
+case "$de_choice" in
     1) DE="gnome"     ;;
     2) DE="labwc"     ;;
     3) DE="sway"      ;;
     4) DE="kde"       ;;
     5) DE="hyprland"  ;;
-    *) echo "Invalid choice." >&2; exit 1 ;;
+    *) die "invalid choice: $de_choice" ;;
 esac
 
-echo "dev: installing s6 suite..."
-apt-get install -y s6 s6-rc s6-linux-init
+de_profile="$DESKTOPS_DIR/$DE.toml"
+[ -f "$de_profile" ] || die "desktop profile not found: $de_profile"
 
-echo "dev: installing $DE..."
-# parse desktops/$DE.toml and apt-get install the package list
-# TODO: TOML parser call here
+echo ""
+echo "  hostname:  $hostname"
+echo "  timezone:  $timezone"
+echo "  locale:    $locale"
+echo "  user:      $username"
+echo "  desktop:   $DE"
+echo ""
+printf "  proceed? [Y/n]: "; read -r confirm
+case "$confirm" in
+    [nN]*) echo "aborted."; exit 0 ;;
+esac
+echo ""
 
-echo "dev: applying devysix.toml..."
-dev switch
+# ── install s6 suite ──────────────────────────────────────────────────────────
 
-echo "Devysix setup complete. Reboot to start."
+echo "[ s6 ]"
+info "installing s6 suite..."
+apt-get install -y s6 s6-rc s6-linux-init s6-linux-init-utils \
+    || die "failed to install s6 suite"
+
+# ── set up s6-linux-init ──────────────────────────────────────────────────────
+
+info "configuring s6-linux-init..."
+mkdir -p /etc/s6-linux-init/scripts
+
+s6-linux-init-maker \
+    -1 /etc/s6-linux-init/scripts/rc.init \
+    -2 /etc/s6-linux-init/scripts/rc.shutdown \
+    -3 /etc/s6-linux-init/scripts/rc.final \
+    /etc/s6-linux-init \
+    || die "s6-linux-init-maker failed"
+
+# point /sbin/init at s6
+ln -sf /etc/s6-linux-init/bin/init /sbin/init
+
+# ── install DE packages ───────────────────────────────────────────────────────
+
+echo ""
+echo "[ desktop: $DE ]"
+info "installing packages..."
+
+de_pkgs="$(toml_get_array "$de_profile" desktop packages)"
+[ -z "$de_pkgs" ] && die "no packages defined for $DE"
+
+# shellcheck disable=SC2086
+apt-get install -y $de_pkgs || die "DE package install failed"
+
+# ── create user ───────────────────────────────────────────────────────────────
+
+echo ""
+echo "[ user: $username ]"
+if id "$username" >/dev/null 2>&1; then
+    info "user $username already exists"
+else
+    info "creating user..."
+    useradd -m -s /bin/bash \
+        -G audio,video,input,plugdev,netdev,wheel \
+        "$username"
+fi
+
+echo "$username:$password" | chpasswd
+info "password set"
+
+# ── write devysix.toml ────────────────────────────────────────────────────────
+
+echo ""
+echo "[ devysix.toml ]"
+info "generating config..."
+
+de_svc="$(toml_get_array "$de_profile" desktop services)"
+
+mkdir -p /etc/devysix
+cat > "$DEVYSIX_CONFIG" <<TOML
+[system]
+hostname = "$hostname"
+locale   = "$locale"
+timezone = "$timezone"
+kernel   = "linux-image-amd64"
+
+[desktop]
+environment = "$DE"
+
+[packages]
+installed = [
+    "s6",
+    "s6-rc",
+    "s6-linux-init",
+$(echo "$de_pkgs" | sed 's/^/    "/;s/$/",/')
+]
+locked = []
+
+[services]
+enabled = [
+    "core",
+    "udevd",
+    "udev-trigger",
+    "dbus",
+    "elogind",
+    "networkmanager",
+    "getty-tty1",
+    "getty-tty2",
+$(echo "$de_svc" | grep -v '^$' | sed 's/^/    "/;s/$/",/')
+]
+
+[[users.user]]
+name   = "$username"
+groups = ["audio", "video", "input", "plugdev", "netdev", "wheel"]
+shell  = "/bin/bash"
+TOML
+
+info "config written to $DEVYSIX_CONFIG"
+
+# ── compile s6-rc database ────────────────────────────────────────────────────
+
+echo ""
+echo "[ s6-rc ]"
+
+if command -v mycel-compose >/dev/null 2>&1; then
+    info "generating service tree via mycel-compose..."
+    mkdir -p "$S6RC_SOURCE"
+    mycel-compose --services "$SERVICES_DIR" --out "$S6RC_SOURCE" \
+        || die "mycel-compose failed"
+
+    info "compiling s6-rc database..."
+    mkdir -p /etc/s6-rc
+    s6-rc-compile "$S6RC_COMPILED" "$S6RC_SOURCE" \
+        || die "s6-rc-compile failed"
+    info "s6-rc database compiled"
+else
+    echo "  warning: mycel-compose not found — skipping service compile"
+    echo "  run 'dev services validate' after installing mycel-compose"
+fi
+
+# ── apply hostname / timezone / locale ───────────────────────────────────────
+
+echo "$hostname" > /etc/hostname
+ln -sf "/usr/share/zoneinfo/$timezone" /etc/localtime
+grep -qxF "$locale" /etc/locale.gen 2>/dev/null \
+    || echo "$locale UTF-8" >> /etc/locale.gen
+locale-gen --keep-existing "$locale" >/dev/null 2>&1
+printf 'LANG=%s\n' "$locale" > /etc/locale.conf
+
+# ── done ──────────────────────────────────────────────────────────────────────
+
+touch "$SETUP_DONE"
+
+echo ""
+echo "┌─────────────────────────────────────────┐"
+echo "│  devysix setup complete                 │"
+echo "│                                         │"
+echo "│  reboot to start your new system        │"
+echo "│  use 'dev' to manage your config        │"
+echo "└─────────────────────────────────────────┘"
+echo ""
+printf "  reboot now? [Y/n]: "; read -r rb
+case "$rb" in
+    [nN]*) echo "  run 'reboot' when ready." ;;
+    *)     reboot ;;
+esac
