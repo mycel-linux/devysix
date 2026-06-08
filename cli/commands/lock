@@ -1,7 +1,13 @@
 #!/bin/sh
-# pin a package so it is preserved across rollbacks
 DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
 
 [ -z "$1" ] && { echo "usage: dev lock <package>" >&2; exit 1; }
-echo "dev: locking $1"
-# TODO: write locked = true for package entry in devysix.toml
+
+toml_array_contains "$DEVYSIX_CONFIG" packages locked "$1" \
+    && echo "dev: $1 is already locked" && exit 0
+
+toml_array_add "$DEVYSIX_CONFIG" packages locked "$1"
+echo "dev: locked $1"

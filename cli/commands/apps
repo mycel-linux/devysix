@@ -1,17 +1,51 @@
 #!/bin/sh
-# manage applications via apt, persisted to devysix.toml
-DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+# dev apps — manage packages, persisted to devysix.toml
 
-action="$1"
-shift
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
+
+die() { echo "dev apps: $1" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must be run as root"
+
+action="$1"; shift
+[ -z "$action" ] && { echo "usage: dev apps <install|remove|search|list> [packages]"; exit 1; }
 
 case "$action" in
-    install)   apt install "$@" ;;
-    remove)    apt remove "$@" ;;
-    search)    apt search "$@" ;;
-    list)      apt list --installed 2>/dev/null ;;
+    install)
+        [ -z "$1" ] && die "no packages specified"
+        apt-get install -y "$@" || die "install failed"
+        for pkg in "$@"; do
+            toml_array_add "$DEVYSIX_CONFIG" packages installed "$pkg"
+        done
+        echo "dev: added to devysix.toml: $*"
+        ;;
+    remove)
+        [ -z "$1" ] && die "no packages specified"
+        for pkg in "$@"; do
+            toml_array_contains "$DEVYSIX_CONFIG" packages locked "$pkg" \
+                && die "$pkg is locked — run 'dev unlock $pkg' first"
+        done
+        apt-get remove -y "$@" || die "remove failed"
+        for pkg in "$@"; do
+            toml_array_remove "$DEVYSIX_CONFIG" packages installed "$pkg"
+        done
+        echo "dev: removed from devysix.toml: $*"
+        ;;
+    search)
+        [ -z "$1" ] && die "no search term"
+        apt-cache search "$@"
+        ;;
+    list)
+        echo "=== declared in devysix.toml ==="
+        toml_get_array "$DEVYSIX_CONFIG" packages installed | sed 's/^/  /'
+        echo ""
+        echo "=== locked ==="
+        toml_get_array "$DEVYSIX_CONFIG" packages locked | sed 's/^/  /'
+        ;;
     *)
-        echo "usage: dev apps <install|remove|search|list> [packages]" >&2
-        exit 1
+        die "unknown action '$action' — use install|remove|search|list"
         ;;
 esac

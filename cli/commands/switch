@@ -1,11 +1,131 @@
 #!/bin/sh
-# apply devysix.toml — packages, services, hostname, locale, timezone
-DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+# dev switch — apply devysix.toml to the running system
 
-if [ ! -f "$DEVYSIX_CONFIG" ]; then
-    echo "dev switch: config not found at $DEVYSIX_CONFIG" >&2
-    exit 1
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
+. "$LIB_DIR/generations.sh"
+
+die() { echo "dev switch: $1" >&2; exit 1; }
+info() { echo "  -> $1"; }
+
+[ -f "$DEVYSIX_CONFIG" ] || die "config not found at $DEVYSIX_CONFIG"
+[ "$(id -u)" -eq 0 ]     || die "must be run as root"
+
+echo "dev: snapshotting current state..."
+gen_id="$(gen_save "$DEVYSIX_CONFIG")"
+echo "dev: generation $gen_id saved"
+
+# ── [system] ──────────────────────────────────────────────────────────────────
+
+echo "dev: applying [system]..."
+
+hostname="$(toml_get "$DEVYSIX_CONFIG" system hostname)"
+if [ -n "$hostname" ]; then
+    info "hostname → $hostname"
+    echo "$hostname" > /etc/hostname
+    hostname "$hostname"
 fi
 
-echo "dev: applying $DEVYSIX_CONFIG ..."
-# TODO: parse TOML and apply each section
+timezone="$(toml_get "$DEVYSIX_CONFIG" system timezone)"
+if [ -n "$timezone" ]; then
+    info "timezone → $timezone"
+    tz_file="/usr/share/zoneinfo/$timezone"
+    [ -f "$tz_file" ] || die "unknown timezone: $timezone"
+    ln -sf "$tz_file" /etc/localtime
+fi
+
+locale="$(toml_get "$DEVYSIX_CONFIG" system locale)"
+if [ -n "$locale" ]; then
+    info "locale → $locale"
+    if command -v locale-gen >/dev/null 2>&1; then
+        grep -qxF "$locale" /etc/locale.gen 2>/dev/null || echo "$locale UTF-8" >> /etc/locale.gen
+        locale-gen --keep-existing "$locale" >/dev/null 2>&1
+    fi
+    printf 'LANG=%s\n' "$locale" > /etc/locale.conf
+fi
+
+# ── [packages] ────────────────────────────────────────────────────────────────
+
+echo "dev: applying [packages]..."
+
+# packages declared in TOML
+declared="$(toml_get_array "$DEVYSIX_CONFIG" packages installed)"
+
+# packages installed by the previous generation that we own
+prev_gen="$(gen_current)"
+if [ "$prev_gen" != "none" ]; then
+    prev_config="$(gen_path "$prev_gen")/devysix.toml"
+    prev_declared="$(toml_get_array "$prev_config" packages installed 2>/dev/null)"
+else
+    prev_declared=""
+fi
+
+# locked packages — never removed
+locked="$(toml_get_array "$DEVYSIX_CONFIG" packages locked)"
+
+to_install=""
+for pkg in $declared; do
+    dpkg -s "$pkg" >/dev/null 2>&1 || to_install="$to_install $pkg"
+done
+
+to_remove=""
+for pkg in $prev_declared; do
+    echo "$declared" | grep -qxF "$pkg" && continue          # still declared
+    echo "$locked"   | grep -qxF "$pkg" && continue          # locked
+    dpkg -s "$pkg" >/dev/null 2>&1      || continue          # not installed
+    to_remove="$to_remove $pkg"
+done
+
+if [ -n "$to_install" ]; then
+    info "installing:$to_install"
+    # shellcheck disable=SC2086
+    apt-get install -y $to_install || die "package install failed"
+fi
+
+if [ -n "$to_remove" ]; then
+    info "removing:$to_remove"
+    # shellcheck disable=SC2086
+    apt-get remove -y $to_remove || die "package removal failed"
+fi
+
+[ -z "$to_install" ] && [ -z "$to_remove" ] && info "packages already in sync"
+
+# ── [users] ───────────────────────────────────────────────────────────────────
+
+echo "dev: applying [users]..."
+
+# parse [[users.user]] blocks — each block starts a new user entry
+awk '/^\[\[users\.user\]\]/{u=1;name="";groups="";shell=""}
+     u && /^name/{gsub(/.*= *"|"$/,"",$0); name=$0}
+     u && /^groups/{gsub(/.*= *\[|\]|"/,"",$0); gsub(/,/," ",$0); groups=$0}
+     u && /^shell/{gsub(/.*= *"|"$/,"",$0); shell=$0}
+     u && /^$/ && name!=""{print name"|"groups"|"shell; u=0}
+     END{if(u && name!="")print name"|"groups"|"shell}
+' "$DEVYSIX_CONFIG" | while IFS='|' read -r name groups shell; do
+    [ -z "$name" ] && continue
+    shell="${shell:-/bin/bash}"
+    if id "$name" >/dev/null 2>&1; then
+        info "user exists: $name"
+    else
+        info "creating user: $name"
+        useradd -m -s "$shell" "$name"
+    fi
+    for grp in $groups; do
+        grp="$(echo "$grp" | tr -d ' "')"
+        [ -z "$grp" ] && continue
+        getent group "$grp" >/dev/null 2>&1 && usermod -aG "$grp" "$name"
+    done
+done
+
+# ── [services] ────────────────────────────────────────────────────────────────
+
+echo "dev: applying [services]..."
+# mycel-compose integration will go here in Phase 4
+info "service management: pending mycel-compose integration"
+
+# ── done ──────────────────────────────────────────────────────────────────────
+
+gen_set_current "$gen_id"
+echo "dev: switch complete (generation $gen_id)"

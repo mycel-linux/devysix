@@ -1,6 +1,13 @@
 #!/bin/sh
 DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+
+. "$LIB_DIR/toml.sh"
 
 [ -z "$1" ] && { echo "usage: dev unlock <package>" >&2; exit 1; }
-echo "dev: unlocking $1"
-# TODO: remove locked = true for package entry in devysix.toml
+
+toml_array_contains "$DEVYSIX_CONFIG" packages locked "$1" \
+    || { echo "dev: $1 is not locked" >&2; exit 1; }
+
+toml_array_remove "$DEVYSIX_CONFIG" packages locked "$1"
+echo "dev: unlocked $1"
