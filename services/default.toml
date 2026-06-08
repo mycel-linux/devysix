@@ -1,0 +1,3 @@
+name = "default"
+kind = "bundle"
+# top-level bundle — everything enabled in devysix.toml joins here

@@ -1,0 +1,7 @@
+name = "elogind"
+kind = "longrun"
+needs = ["dbus", "udev-trigger"]
+bundles = ["core"]
+setup = ["mkdir -p /run/systemd"]
+exec = "/usr/lib/elogind/elogind"
+log = true

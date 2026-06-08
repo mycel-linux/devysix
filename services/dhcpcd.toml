@@ -1,0 +1,6 @@
+name = "dhcpcd"
+kind = "longrun"
+needs = ["udev-trigger"]
+bundles = ["default"]
+exec = "dhcpcd -B -q"
+log = true

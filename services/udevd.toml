@@ -1,0 +1,5 @@
+name = "udevd"
+kind = "longrun"
+bundles = ["core"]
+exec = "/usr/lib/udev/udevd --daemon=0"
+log = true

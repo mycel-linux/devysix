@@ -8,7 +8,7 @@ cmd="$1"
 shift
 
 case "$cmd" in
-    edit|switch|lock|unlock|apps|rollback|diff|purge|doctor|update|check|theme|spore|spread|guide|active|network|boot)
+    edit|switch|lock|unlock|apps|rollback|diff|purge|doctor|update|check|theme|spore|spread|guide|active|network|boot|services)
         exec "$COMMANDS_DIR/$cmd" "$@"
         ;;
     ""|--help|-h)
@@ -30,6 +30,7 @@ dev — devysix system manager
   dev spore <pkgs>      temporary shell with extra packages
   dev spread            export config for fresh install
   dev guide             launch tutorial
+  dev services          show or validate service state
 EOF
         ;;
     *)

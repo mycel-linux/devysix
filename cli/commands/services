@@ -1,0 +1,37 @@
+#!/bin/sh
+# dev services — show service status or rebuild the service tree
+
+DEVYSIX_CONFIG="${DEVYSIX_CONFIG:-/etc/devysix/devysix.toml}"
+LIB_DIR="${DEVYSIX_LIB:-/usr/lib/devysix}"
+S6RC_LIVE="/run/s6-rc"
+
+. "$LIB_DIR/toml.sh"
+
+action="${1:-status}"
+
+case "$action" in
+    status)
+        echo "declared in devysix.toml:"
+        toml_get_array "$DEVYSIX_CONFIG" services enabled | sed 's/^/  /'
+        echo ""
+        if [ -d "$S6RC_LIVE" ]; then
+            echo "live s6-rc state:"
+            s6-rc -l "$S6RC_LIVE" -a list 2>/dev/null | sed 's/^/  /' \
+                || echo "  (s6-rc not available)"
+        else
+            echo "s6-rc live dir not found — system may not be running under s6"
+        fi
+        ;;
+    validate)
+        if ! command -v mycel-compose >/dev/null 2>&1; then
+            echo "dev services: mycel-compose not installed" >&2; exit 1
+        fi
+        SERVICES_SRC="${DEVYSIX_SERVICES:-/usr/lib/devysix/services}"
+        mycel-compose --services "$SERVICES_SRC" --check \
+            && echo "dev: service definitions valid"
+        ;;
+    *)
+        echo "usage: dev services [status|validate]" >&2
+        exit 1
+        ;;
+esac

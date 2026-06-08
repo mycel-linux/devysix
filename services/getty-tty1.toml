@@ -1,0 +1,4 @@
+name = "getty-tty1"
+kind = "longrun"
+bundles = ["default"]
+exec = "agetty --noclear tty1 linux"

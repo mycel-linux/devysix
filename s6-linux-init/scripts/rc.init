@@ -1,3 +1,37 @@
 #!/bin/sh
-# stage 1 init — hand off to s6-rc
-exec s6-linux-init-rc "$@"
+# stage 2 init — called by s6-linux-init after PID 1 is up
+# responsibilities: mount filesystems, environment, start s6-rc
+
+S6RC_COMPILED="/etc/s6-rc/compiled"
+S6RC_LIVE="/run/s6-rc"
+S6_SVSCAN_DIR="/run/s6/servicedirs"
+
+# ── filesystems ───────────────────────────────────────────────────────────────
+
+mountpoint -q /proc    || mount -t proc     proc     /proc
+mountpoint -q /sys     || mount -t sysfs    sysfs    /sys
+mountpoint -q /dev     || mount -t devtmpfs devtmpfs /dev
+mountpoint -q /dev/pts || mount -t devpts   devpts   /dev/pts -o gid=5,mode=620
+mountpoint -q /dev/shm || mount -t tmpfs    tmpfs    /dev/shm
+mountpoint -q /run     || mount -t tmpfs    tmpfs    /run -o mode=755,nosuid,nodev
+
+mkdir -p /run/s6 /run/s6-rc "$S6_SVSCAN_DIR"
+
+# ── hostname ─────────────────────────────────────────────────────────────────
+
+[ -f /etc/hostname ] && hostname "$(cat /etc/hostname)"
+
+# ── locale / timezone ─────────────────────────────────────────────────────────
+
+[ -f /etc/locale.conf ] && . /etc/locale.conf && export LANG
+[ -L /etc/localtime ]   || ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+# ── s6-rc ─────────────────────────────────────────────────────────────────────
+
+if [ ! -d "$S6RC_COMPILED" ]; then
+    echo "rc.init: no compiled s6-rc database at $S6RC_COMPILED" >&2
+    echo "rc.init: dropping to emergency shell" >&2
+    exec sh
+fi
+
+exec s6-rc-init -c "$S6RC_COMPILED" -l "$S6RC_LIVE" -- "$S6_SVSCAN_DIR"

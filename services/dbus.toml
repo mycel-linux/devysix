@@ -1,0 +1,7 @@
+name = "dbus"
+kind = "longrun"
+needs = ["udevd"]
+bundles = ["core"]
+setup = ["mkdir -p /run/dbus"]
+exec = "dbus-daemon --system --nofork --nopidfile"
+log = true

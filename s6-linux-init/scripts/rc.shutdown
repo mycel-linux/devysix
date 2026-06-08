@@ -1,3 +1,15 @@
 #!/bin/sh
-# graceful shutdown via s6-rc
-exec s6-linux-init-hpr -p
+# stage 3 shutdown — called by s6-linux-init on halt/reboot/poweroff
+
+S6RC_LIVE="/run/s6-rc"
+
+# bring down all s6-rc services cleanly
+if [ -d "$S6RC_LIVE" ]; then
+    s6-rc -v2 -l "$S6RC_LIVE" -ba change
+fi
+
+# sync and unmount
+sync
+umount -a -r 2>/dev/null
+
+exec s6-linux-init-hpr "${1:--p}"

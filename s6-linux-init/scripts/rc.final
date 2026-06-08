@@ -1,0 +1,15 @@
+#!/bin/sh
+# stage 3 final — last script before the kernel hands off to halt/reboot
+# $1 = 0 (halt), 1 (reboot), 2 (poweroff)
+
+# ensure all writes are flushed
+sync
+
+case "$1" in
+    0) action="halt"     ;;
+    1) action="reboot"   ;;
+    2) action="poweroff" ;;
+    *) action="poweroff" ;;
+esac
+
+echo "devysix: $action"

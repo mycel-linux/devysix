@@ -122,8 +122,54 @@ done
 # ── [services] ────────────────────────────────────────────────────────────────
 
 echo "dev: applying [services]..."
-# mycel-compose integration will go here in Phase 4
-info "service management: pending mycel-compose integration"
+
+SERVICES_SRC="${DEVYSIX_SERVICES:-/usr/lib/devysix/services}"
+S6RC_SOURCE="/etc/s6-rc/source"
+S6RC_COMPILED="/etc/s6-rc/compiled"
+S6RC_LIVE="/run/s6-rc"
+
+if ! command -v mycel-compose >/dev/null 2>&1; then
+    info "mycel-compose not found — skipping service apply"
+else
+    enabled="$(toml_get_array "$DEVYSIX_CONFIG" services enabled)"
+
+    if [ -z "$enabled" ]; then
+        info "no services declared"
+    else
+        # build a temporary services dir with only the enabled services
+        tmp_svc="$(mktemp -d)"
+        cp "$SERVICES_SRC/default.toml" "$tmp_svc/" 2>/dev/null
+        cp "$SERVICES_SRC/core.toml"    "$tmp_svc/" 2>/dev/null
+
+        for svc in $enabled; do
+            svc_file="$SERVICES_SRC/$svc.toml"
+            if [ -f "$svc_file" ]; then
+                cp "$svc_file" "$tmp_svc/"
+            else
+                echo "dev switch: warning: no service definition for '$svc'" >&2
+            fi
+        done
+
+        info "compiling service tree via mycel-compose..."
+        mkdir -p "$S6RC_SOURCE"
+        mycel-compose --services "$tmp_svc" --out "$S6RC_SOURCE" \
+            || die "mycel-compose failed"
+        rm -rf "$tmp_svc"
+
+        new_compiled="$(mktemp -d)"
+        s6-rc-compile "$new_compiled" "$S6RC_SOURCE" \
+            || die "s6-rc-compile failed"
+
+        if [ -d "$S6RC_LIVE" ]; then
+            info "applying live service changes via s6-rc-update..."
+            s6-rc-update "$new_compiled" || die "s6-rc-update failed"
+            rm -rf "$S6RC_COMPILED"
+        fi
+
+        mv "$new_compiled" "$S6RC_COMPILED"
+        info "services applied"
+    fi
+fi
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
