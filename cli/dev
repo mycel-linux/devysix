@@ -6,7 +6,7 @@ DEVYSIX_LIB="${DEVYSIX_LIB:-/usr/lib/devysix}"
 COMMANDS_DIR="${DEVYSIX_COMMANDS:-$DEVYSIX_LIB/commands}"
 
 cmd="$1"
-shift
+[ $# -gt 0 ] && shift
 
 case "$cmd" in
     edit|switch|lock|unlock|apps|rollback|diff|purge|doctor|update|check|theme|spore|spread|guide|active|network|boot|services)

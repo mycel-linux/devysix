@@ -44,7 +44,7 @@ else
     warn "no generation recorded — run 'dev switch' to create one"
 fi
 
-gen_count="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null | grep -c '^[0-9]' || echo 0)"
+gen_count="$(ls "$DEVYSIX_GEN_DIR" 2>/dev/null | grep -c '^[0-9]')" || gen_count=0
 ok "$gen_count generation(s) stored"
 
 # ── packages ──────────────────────────────────────────────────────────────────
