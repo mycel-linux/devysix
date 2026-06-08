@@ -98,9 +98,13 @@ echo ""
 # ── install s6 suite ──────────────────────────────────────────────────────────
 
 echo "[ s6 ]"
-info "installing s6 suite..."
-apt-get install -y s6 s6-rc s6-linux-init s6-linux-init-utils \
-    || die "failed to install s6 suite"
+info "installing s6 and execline from apt..."
+apt-get install -y s6 execline skalibs-dev gcc make curl \
+    || die "failed to install s6"
+
+info "building s6-rc and s6-linux-init from source..."
+sh /usr/lib/devysix/build/build-skarnet.sh \
+    || die "skarnet build failed"
 
 # ── set up s6-linux-init ──────────────────────────────────────────────────────
 

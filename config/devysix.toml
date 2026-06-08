@@ -12,8 +12,7 @@ environment = "sway"   # gnome | labwc | sway | kde | hyprland
 installed = [
     "base-files",
     "s6",
-    "s6-rc",
-    "s6-linux-init",
+    "execline",
     "fastfetch",
 ]
 
@@ -39,4 +38,4 @@ enabled = [
 # shell    = "/bin/bash"
 
 [theme]
-name = "rhizome"
+name = "voi"

@@ -70,8 +70,10 @@ fi
 
 echo ""
 echo "[ s6 ]"
-command -v s6-rc        >/dev/null 2>&1 && ok "s6-rc in PATH"       || fail "s6-rc not found"
-command -v s6-rc-compile >/dev/null 2>&1 && ok "s6-rc-compile found" || warn "s6-rc-compile not found"
+command -v s6-svscan     >/dev/null 2>&1 && ok "s6 in PATH"          || fail "s6 not found — apt install s6"
+command -v s6-rc         >/dev/null 2>&1 && ok "s6-rc in PATH"       || warn "s6-rc not found — run build/build-skarnet.sh"
+command -v s6-rc-compile >/dev/null 2>&1 && ok "s6-rc-compile found" || warn "s6-rc-compile not found — run build/build-skarnet.sh"
+command -v s6-linux-init-maker >/dev/null 2>&1 && ok "s6-linux-init found" || warn "s6-linux-init not found — run build/build-skarnet.sh"
 [ -d "$S6RC_COMPILED" ] && ok "compiled s6-rc database exists"       || warn "no compiled s6-rc database — run 'dev switch'"
 [ -d "$S6RC_LIVE" ]     && ok "s6-rc live dir present"               || warn "s6-rc live dir absent — not running under s6?"
 command -v mycel-compose >/dev/null 2>&1 && ok "mycel-compose found" || warn "mycel-compose not installed"

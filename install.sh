@@ -10,6 +10,7 @@ REPO_DIR="$(dirname "$(realpath "$0")")"
 echo "devysix: installing system tooling..."
 
 install -dm755 /usr/lib/devysix
+install -dm755 /usr/lib/devysix/build
 install -dm755 /usr/lib/devysix/services
 install -dm755 /usr/lib/devysix/desktops
 install -dm755 /usr/lib/devysix/themes
@@ -30,6 +31,9 @@ install -m755 "$REPO_DIR/cli/dev"  /usr/local/bin/dev
 for cmd in "$REPO_DIR/cli/commands/"*; do
     install -m755 "$cmd" /usr/lib/devysix/commands/
 done
+
+# build helpers
+install -m755 "$REPO_DIR/build/build-skarnet.sh" /usr/lib/devysix/build/build-skarnet.sh
 
 # service definitions, desktop profiles, themes, assets
 install -m644 "$REPO_DIR/services/"*.toml    /usr/lib/devysix/services/
